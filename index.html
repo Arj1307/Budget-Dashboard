@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>
+        Budget Dashboard
+    </title>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="find">
+            <h3>Filter</h3>
+            Description:
+            <input id="bydescription">
+            Type:
+            <select id="bytype">
+                <option value="---">---</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            Category:   
+            <input id="bycategory">
+            Date: From
+            <input id="fromdate" type="date">
+            To
+            <input id="todate" type="date">
+            <button id="search">SEARCH</button>
+            <br><br>
+        </div>
+        <div class="form">
+            <div class="displaybox">
+                <h3>Display</h3>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
+                    <tbody id="list">
+
+                    </tbody>
+                </table>
+            </div>
+            <div class="add">
+                <h3>Add</h3>
+                <label for="description">Description:</label>
+                <input id="description">
+                <label for="amount">Amount:</label>
+                <input id="amount" type="number">
+                <label for="type">Type:</label>
+                <select id="type">
+                    <option value ="---">---</option>
+                    <option value ="income">Income</option>
+                    <option value ="expense">Expense</option>
+                </select>
+                <label for="category">Category:</label>
+                <input id="category">
+                <div class="buttonContainer">
+                    <button id="addbutton">ADD</button>
+                </div>
+                <br>
+                <h3 id="invalidamt"></h3>
+            </div>
+        </div>
+        <div class="analytics">
+            <h3 id="topdisplay"></h3>
+            <br>
+            <h3 id="groupdisplay">Grouped by category</h3>
+            <ul id="lst"></ul>
+        </div>
+    </div>
+
+    <script>
+        const list=document.querySelector("#list");
+        const description=document.querySelector("#description");
+        const amount=document.querySelector("#amount");
+        const type=document.querySelector("#type");
+        const category=document.querySelector("#category");
+        const bydescription=document.querySelector("#bydescription");
+        const bytype=document.querySelector("#bytype");
+        const bycategory=document.querySelector("#bycategory");
+        const fromdate=document.querySelector("#fromdate");
+        const todate=document.querySelector("#todate")
+        const search=document.querySelector("#search");
+        const invalidamt=document.querySelector("#invalidamt");
+        const topdisplay=document.querySelector("#topdisplay");
+        const lst=document.querySelector("#lst");
+
+        let transactions = [
+            { id: 1, description: "Salary",     amount: 3000, type: "income",  category: "Salary",   date: "2026-06-01" , isdelete: false},
+            { id: 2, description: "Rent",       amount: 1200, type: "expense", category: "Bills",    date: "2026-06-02" , isdelete: false},
+            { id: 3, description: "Groceries",  amount: 320,  type: "expense", category: "Food",     date: "2026-06-04" , isdelete: false},
+            { id: 4, description: "Train pass", amount: 90,   type: "expense", category: "Travel",   date: "2026-06-05" , isdelete: false},
+            { id: 5, description: "Dinner out", amount: 65,   type: "expense", category: "Food",     date: "2026-06-08" , isdelete: false},
+            { id: 6, description: "Jacket",     amount: 140,  type: "expense", category: "Shopping", date: "2026-06-11" , isdelete: false},
+            { id: 7, description: "Freelance",  amount: 500,  type: "income",  category: "Salary",   date: "2026-06-12" , isdelete: false},
+            { id: 8, description: "Electricity",amount: 110,  type: "expense", category: "Bills",    date: "2026-06-14" , isdelete: false}
+        ];
+        
+        function renderDashboard(data){
+            list.innerHTML="";
+            data.map(t=>{ 
+                const row=document.createElement("tr");
+                if(t.amount>0){
+                    row.innerHTML=`
+                    <td>${t.description}</td>
+                    <td>${t.type}</td>
+                    <td>${t.category}</td>
+                    <td>${t.date}</td>
+                    <td>${t.amount}</td>
+                    <td>
+                        <button class="del" onclick="deleteTransaction(${t.id})">
+                            delete
+                        </button>
+                    </td>
+                    `;
+                    list.appendChild(row);
+                
+                if(t.type==="income"){
+                    row.className="inc";
+                }
+                else{
+                    row.className="exp";
+                }
+                }
+                
+            }
+            )
+            const balRow=document.createElement("tr");
+                balRow.innerHTML=`
+                <td colspan="4"><b>Total Balance</b></td>
+                <td><b>${getBalance()}</b></td>
+                <td></td>
+                `
+                list.appendChild(balRow);
+        }
+        renderDashboard(transactions);
+        getTopCategory();
+        groupByCategory();
+        
+        let id=transactions.length+1;
+        let today=new Date().toISOString().split("T")[0];
+
+        function addTransaction(){      
+            let transaction={ id: id, description: description.value, amount: Number(amount.value), type: type.value, category: category.value, date: today, isdelete: false};
+            let arr=[ {id: id, description: description.value, amount: Number(amount.value), type: type.value, category: category.value, date: today, isdelete: false}]
+            const a=getBalance();
+            const b=arr.every(n=>n.type==="expense" && n.amount>a);
+            invalidamt.innerHTML="";
+            
+            if(transaction.amount<=0){
+                invalidamt.textContent=` Amount must be greater than 0 `;
+            }
+            else if(b){
+                invalidamt.textContent=` Required Amount is Over the Budget`;
+            }
+            else{
+                transactions.push(transaction);
+                id++;
+                renderDashboard(transactions);
+            }
+            getTopCategory();
+            groupByCategory();
+        }
+        addbutton.addEventListener("click",addTransaction);
+        
+        function deleteTransaction(ID){
+            let d =ID;
+            const c=transactions.find(n=>n.id==d);
+            c.isdelete=true; 
+            const update= transactions.filter(n=>n.isdelete==false);
+            transactions=update;
+            renderDashboard(transactions);
+            getTopCategory();
+            groupByCategory();
+        }
+
+        function getFilteredTransactions(){
+            const d=bydescription.value;
+            const t=bytype.value;
+            const c=bycategory.value;
+            const fd=fromdate.value;
+            const td=todate.value;
+
+            let filtered=transactions;
+            if(d !== ""){
+                filtered=filtered.filter(n=>n.description.toLowerCase().includes(d.toLowerCase()));
+            }
+            if(t !== "---"){
+                filtered=filtered.filter(n=>n.type==t);
+            }
+            if(c !== ""){
+                filtered=filtered.filter(n=>n.category.toLowerCase().includes(c.toLowerCase()));
+            }
+            if(fd !=="" && td !==""){
+                filtered=filtered.filter(n=>n.date>=fd && n.date<=td);
+            }
+            return filtered;
+        }
+
+        function applyFilters(){
+            const result=getFilteredTransactions();
+            renderDashboard(result);
+        }
+        search.addEventListener("click",applyFilters);
+
+        function groupByCategory(){
+            let grp={};
+            transactions.reduce((acc,t)=>{
+                if(t.type==="expense"){
+                    acc[t.category] = (acc[t.category] || 0) + t.amount
+                }
+                return acc
+            },grp);
+
+            lst.innerHTML="";
+            (Object.entries(grp)).map(n=>{
+                const li=document.createElement("li");
+                li.innerHTML=` ${n[0]} : ${n[1]} 
+                <div class="bar">
+                    <div class="fill" style="width:${n[1]/10}px">
+                    </div>
+                </div>
+                `;
+                lst.appendChild(li);
+            });
+            
+            return grp;
+        }
+        
+        function getBalance(){
+            const balance=transactions.reduce((a,b)=>
+                {
+                    if (b.type==="income") {
+                        return a+b.amount;
+                    }
+                    else{
+                        return a-b.amount;
+                    }
+                }
+            ,0)
+            return balance;           
+        }
+
+        function getTopCategory(){
+            let top=[];
+            top=Object.entries(groupByCategory());
+            top.sort((a,b)=>b[1]-a[1]);
+            if(top.length!=0){
+                topdisplay.textContent=` Most amount is spent on category - ${top[0][0]}`;
+            }
+            else{
+                topdisplay.textContent=` No money is spent `;
+            }
+        }
+
+    </script>
+    <style>
+        *{
+            box-sizing:border-box;
+        }
+        body{
+            margin:0;
+            padding:20px;
+            font-family:Arial, sans-serif;
+            background: #111827;
+            color:white;
+        }
+        table{
+            width: 100%;
+            border-collapse:collapse;
+        }
+        td,th{
+            border:1px solid white;
+            padding:5px;
+            text-align: center;
+        }
+        .form{
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 30px;
+            letter-spacing: 1px;
+            margin-left: 40px;
+            animation: show 3s ease;
+        }
+        .add{
+            display: flex;
+            flex-direction: column;
+            width: 60%;
+            gap: 15px;
+            margin-left: 90px;
+        }
+        .buttonContainer{
+            display: flex;
+            justify-content: center;
+        }
+        #addbutton{
+          background-color: #2dd4bf;
+          width: 50%;
+          height: 30px;
+        }
+        #addbutton:hover{
+            transform: scale(1.05);
+        }
+        .find{
+            margin-left: 70px;
+        }
+        .analytics{
+            margin-left: 70px;
+            animation: show 3s ease;
+        }
+        h3{
+            text-align: center;
+        }
+        .inc{
+            color: #4ade80;
+        }
+        .exp{
+            color: red;
+        }
+        .bar{
+            width: 300px;
+            height: 20px;
+            background: #333;
+            margin: 9px;
+            overflow: hidden;
+        }
+        .fill{
+            height: 90%;
+            background: orange;
+        }
+        input,select{
+            background: rgb(86, 86, 86);
+        }
+        .del{
+            background: rgb(126, 22, 22);
+        }
+        @keyframes show {
+            from{
+                opacity: 0;
+                transform: translateY(15px);
+            }
+            to{
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        html{
+            scroll-behavior: smooth;
+        }
+    </style>
+</body>
+</html>
